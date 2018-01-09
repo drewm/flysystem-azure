@@ -11,6 +11,7 @@ use MicrosoftAzure\Storage\Blob\Models\BlobPrefix;
 use MicrosoftAzure\Storage\Blob\Models\BlobProperties;
 use MicrosoftAzure\Storage\Blob\Models\CopyBlobResult;
 use MicrosoftAzure\Storage\Blob\Models\CreateBlobOptions;
+use MicrosoftAzure\Storage\Blob\Models\CopyBlobOptions;
 use MicrosoftAzure\Storage\Blob\Models\ListBlobsOptions;
 use MicrosoftAzure\Storage\Blob\Models\ListBlobsResult;
 use MicrosoftAzure\Storage\Common\ServiceException;
@@ -96,12 +97,17 @@ class AzureAdapter extends AbstractAdapter
         return $this->delete($path);
     }
 
-    public function copy($path, $newpath)
+    public function copy($path, $newpath, $config = null)
     {
         $path = $this->applyPathPrefix($path);
         $newpath = $this->applyPathPrefix($newpath);
 
-        $this->client->copyBlob($this->container, $newpath, $this->container, $path);
+        $this->client->copyBlob(
+            $this->container, 
+            $newpath, 
+            $this->container, 
+            $path, 
+            $this->getOptionsFromConfigForCopy($config));
 
         return true;
     }
@@ -367,23 +373,41 @@ class AzureAdapter extends AbstractAdapter
             $this->container,
             $path,
             $contents,
-            $this->getOptionsFromConfig($config)
+            $this->getOptionsFromConfigForCreate($config)
         );
 
         return $this->normalize($path, $result->getLastModified()->format('U'), $contents);
     }
 
+    protected function getOptionsFromConfigForCopy(Config $config)
+    {
+        if (!$config) return null;
+
+        $options = new CopyBlobOptions();
+
+        return $this->getOptionsFromConfig($config, $options);
+    }
+
+    protected function getOptionsFromConfigForCreate(Config $config)
+    {
+        if (!$config) return null;
+
+        $options = new CreateBlobOptions();
+
+        return $this->getOptionsFromConfig($config, $options);
+    }
+
+
     /**
      * Retrieve options from a Config instance.
      *
      * @param Config $config
+     * @param Config $config
      *
      * @return CreateBlobOptions
      */
-    protected function getOptionsFromConfig(Config $config)
+    protected function getOptionsFromConfig($config, $options)
     {
-        $options = new CreateBlobOptions();
-
         foreach (static::$metaOptions as $option) {
             if ( ! $config->has($option)) {
                 continue;
